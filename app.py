@@ -168,7 +168,9 @@ def login():
     email = (request.form.get("email") or "").strip().lower()
     psw = request.form.get("psw") or ""
     with db() as con:
-        row = con.execute("SELECT email,password_hash FROM users WHERE email=?", (email,)).fetchone()
+        sql = "SELECT email,password_hash FROM users WHERE email=%s" if is_postgres() else "SELECT email,password_hash FROM users WHERE email=?"
+        cur = exec_sql(con, sql, (email,))
+        row = fetchone(cur)
 
     if not row or not check_password_hash(row["password_hash"], psw):
         flash("Invalid username or password.")
