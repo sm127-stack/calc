@@ -17,8 +17,18 @@ import model
 APP_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_PATH = os.path.join(APP_DIR, "app.db")
 
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-def db() -> sqlite3.Connection:
+
+def db():
+    # If deployed on Render with Postgres
+    if DATABASE_URL:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+        return conn
+
+    # Otherwise use SQLite locally
     con = sqlite3.connect(DB_PATH)
     con.row_factory = sqlite3.Row
     return con
