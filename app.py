@@ -39,17 +39,15 @@ def fetchall(cur):
 
 
 def db():
-    # If deployed on Render with Postgres
     if DATABASE_URL:
         import psycopg2
         from psycopg2.extras import RealDictCursor
-        conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-        return conn
-
-    # Otherwise use SQLite locally
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    return con
+        con = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+        return con
+    else:
+        con = sqlite3.connect(DB_PATH)
+        con.row_factory = sqlite3.Row
+        return con
 
 
 def init_db() -> None:
