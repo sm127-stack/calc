@@ -19,6 +19,24 @@ DB_PATH = os.path.join(APP_DIR, "app.db")
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+def is_postgres() -> bool:
+    return bool(DATABASE_URL)
+
+def exec_sql(con, sql, params=()):
+    """Execute SQL and return a cursor (works for sqlite + postgres)."""
+    if is_postgres():
+        cur = con.cursor()
+        cur.execute(sql, params)
+        return cur
+    else:
+        return con.execute(sql, params)
+
+def fetchone(cur):
+    return cur.fetchone()
+
+def fetchall(cur):
+    return cur.fetchall()
+
 
 def db():
     # If deployed on Render with Postgres
