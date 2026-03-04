@@ -93,7 +93,8 @@ def get_saved_rows(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
 
-init_db()
+with app.app_context():
+    init_db()
 
 
 @app.get("/")
