@@ -38,7 +38,7 @@ def init_db() -> None:
     with db() as con:
         con.execute("""
             CREATE TABLE IF NOT EXISTS users (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              id SERIAL PRIMARY KEY
               email TEXT UNIQUE NOT NULL,
               password_hash TEXT NOT NULL,
               created_at TEXT NOT NULL
@@ -46,7 +46,7 @@ def init_db() -> None:
         """)
         con.execute("""
             CREATE TABLE IF NOT EXISTS predictions (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              id SERIAL PRIMARY KEY
               user_id INTEGER NOT NULL,
               ts TEXT NOT NULL,
               f0 REAL NOT NULL,
