@@ -52,28 +52,50 @@ def db():
 
 def init_db() -> None:
     with db() as con:
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-              id SERIAL PRIMARY KEY
-              email TEXT UNIQUE NOT NULL,
-              password_hash TEXT NOT NULL,
-              created_at TEXT NOT NULL
-            )
-        """)
-        con.execute("""
-            CREATE TABLE IF NOT EXISTS predictions (
-              id SERIAL PRIMARY KEY
-              user_id INTEGER NOT NULL,
-              ts TEXT NOT NULL,
-              f0 REAL NOT NULL,
-              f1 REAL NOT NULL,
-              f2 REAL NOT NULL,
-              f3 REAL NOT NULL,
-              f4 INTEGER NOT NULL,
-              y REAL NOT NULL,
-              FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-        """)
+        if is_postgres():
+            exec_sql(con, """
+                CREATE TABLE IF NOT EXISTS users (
+                  id SERIAL PRIMARY KEY,
+                  email TEXT UNIQUE NOT NULL,
+                  password_hash TEXT NOT NULL,
+                  created_at TEXT NOT NULL
+                )
+            """)
+            exec_sql(con, """
+                CREATE TABLE IF NOT EXISTS predictions (
+                  id SERIAL PRIMARY KEY,
+                  user_id INTEGER NOT NULL,
+                  ts TEXT NOT NULL,
+                  f0 DOUBLE PRECISION NOT NULL,
+                  f1 DOUBLE PRECISION NOT NULL,
+                  f2 DOUBLE PRECISION NOT NULL,
+                  f3 DOUBLE PRECISION NOT NULL,
+                  f4 INTEGER NOT NULL,
+                  y  DOUBLE PRECISION NOT NULL
+                )
+            """)
+        else:
+            exec_sql(con, """
+                CREATE TABLE IF NOT EXISTS users (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  email TEXT UNIQUE NOT NULL,
+                  password_hash TEXT NOT NULL,
+                  created_at TEXT NOT NULL
+                )
+            """)
+            exec_sql(con, """
+                CREATE TABLE IF NOT EXISTS predictions (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id INTEGER NOT NULL,
+                  ts TEXT NOT NULL,
+                  f0 REAL NOT NULL,
+                  f1 REAL NOT NULL,
+                  f2 REAL NOT NULL,
+                  f3 REAL NOT NULL,
+                  f4 INTEGER NOT NULL,
+                  y REAL NOT NULL
+                )
+            """)
 
 
 def current_user_id() -> int | None:
