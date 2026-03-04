@@ -103,7 +103,8 @@ def current_user_id() -> int | None:
     if not email:
         return None
     with db() as con:
-        row = con.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        cur = exec_sql(con, "SELECT id FROM users WHERE email = %s" if is_postgres() else "SELECT id FROM users WHERE email = ?", (email,))
+        row = fetchone(cur)
         return int(row["id"]) if row else None
 
 
