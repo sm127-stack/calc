@@ -1,0 +1,95 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Strength Calculator</title>
+<style>
+*{box-sizing:border-box;font-family:Arial}
+.btn{display:inline-block;padding:14px 20px;background:#888;color:#fff;cursor:pointer;text-decoration:none}
+.toggle{display:none}
+
+.center-screen{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  margin-top: 18px;
+}
+
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);padding-top:60px}
+.box{background:#fff;margin:auto;padding:20px;border:1px solid #888;width:80%;max-width:600px;position:relative}
+.close{position:absolute;top:10px;right:15px;font-size:30px;font-weight:bold;cursor:pointer;color:#000}
+input{width:100%;padding:12px;margin:8px 0;border:0;background:#f1f1f1}
+.full{width:100%;margin-top:10px;border:0;background:#888;color:#fff;padding:14px 20px;cursor:pointer}
+.small{font-size: 13px; color:#333; margin-top:10px}
+.flash{max-width:600px;margin:12px auto;padding:10px 12px;border:1px solid #ddd;background:#fafafa}
+
+#loginToggle:checked + .modal{display:block}
+#signupToggle:checked + .modal{display:block}
+</style>
+</head>
+
+<body>
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <div class="flash">
+      {% for m in messages %}<div>{{m}}</div>{% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<label class="btn" for="loginToggle">Login</label>
+<input class="toggle" type="checkbox" id="loginToggle">
+
+<div class="modal">
+  <form class="box" action="/login" method="post">
+    <label class="close" for="loginToggle" aria-label="Close">&times;</label>
+    <h1>Login</h1><hr>
+
+    <label>Username (email)</label>
+    <input name="email" type="email" placeholder="Enter Username" required>
+
+    <label>Password</label>
+    <input name="psw" type="password" placeholder="Enter Password" required>
+
+    <button class="full" type="submit">Login</button>
+    <div class="small">After login you will be redirected to the member calculator.</div>
+  </form>
+</div>
+
+<br><br>
+
+<label class="btn" for="signupToggle">Sign Up</label>
+<input class="toggle" type="checkbox" id="signupToggle">
+
+<div class="modal">
+  <form class="box" action="/signup" method="post">
+    <label class="close" for="signupToggle" aria-label="Close">&times;</label>
+    <h1>Sign Up</h1><hr>
+
+    <label>Username (email)</label>
+    <input name="email" type="email" placeholder="Enter Username" required>
+
+    <label>Password</label>
+    <input name="psw" type="password" placeholder="Enter Password" required>
+
+    <button class="full" type="submit">Sign Up</button>
+    <div class="small">Creates a user in a local SQLite database file (<code>app.db</code>).</div>
+  </form>
+</div>
+
+<br><br>
+
+<div class="center-screen">
+  <a class="btn" href="/guest">Open Calculator</a>
+</div>
+
+<div class="center-screen" style="margin-top:10px">
+  {% if session.get("user_email") %}
+    <a class="btn" href="/member">Member Calculator</a>&nbsp;
+    <a class="btn" href="/logout">Logout</a>
+  {% endif %}
+</div>
+
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>
+*{box-sizing:border-box;font-family:Arial}
+.container{max-width:920px;margin:20px auto;padding:0 12px}
+.card{border:1px solid #ddd;border-radius:10px;padding:16px;margin-bottom:14px;background:#fff}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.field{flex:1 1 260px}
+label{display:block;font-weight:600;margin:8px 0 6px}
+input{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px}
+button{padding:12px 16px;border:0;border-radius:10px;background:#888;color:#fff;cursor:pointer}
+.small{font-size:13px;color:#444}
+.nav a{margin-right:10px}
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{border-bottom:1px solid #eee;text-align:left;padding:8px}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#f1f1f1}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="nav">
+    <a href="/">Home</a>
+    <a href="/guest">Guest</a>
+    {% if session.get("user_email") %}
+      <a href="/member">Member</a>
+      <a href="/logout">Logout</a>
+    {% endif %}
+  </div>
+
+  <h2>{{ title }}</h2>
+  <div class="card small">
+    Model: linear regression with standardised inputs (using <code>w</code>, <code>mu</code>, <code>sigma</code> from your notebook).
+    {% if mode == "guest" %}
+      <span class="badge">Guest</span> Predictions are not saved.
+    {% else %}
+      <span class="badge">Member</span> Predictions can be saved to the database.
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="row">
+      {% for f in features %}
+        <div class="field">
+          <label for="f{{loop.index0}}">{{ f }}</label>
+          <input id="f{{loop.index0}}" type="number" step="any" value="{{ defaults[loop.index0] }}">
+        </div>
+      {% endfor %}
+    </div>
+
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <button id="btnPredict">Predict</button>
+      {% if mode == "member" %}
+        <button id="btnSave" disabled>Save</button>
+      {% endif %}
+      <div id="out" class="small"></div>
+    </div>
+  </div>
+
+  {% if mode == "member" %}
+  <div class="card">
+    <h3>Saved predictions (latest 10)</h3>
+    <table class="table" id="savedTable">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          {% for f in features %}<th>{{f}}</th>{% endfor %}
+          <th>{{ target }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in saved_rows %}
+        <tr>
+          <td>{{ row["ts"] }}</td>
+          {% for f in features %}<td>{{ row[f] }}</td>{% endfor %}
+          <td>{{ row[target] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+const mode = "{{ mode }}";
+const features = {{ features|tojson }};
+const target = "{{ target }}";
+
+function readInputs(){
+  return features.map((_,i)=>{
+    const v = document.getElementById("f"+i).value;
+    return (i === features.length-1) ? parseInt(v || "0", 10) : parseFloat(v || "0");
+  });
+}
+
+let lastPrediction = null;
+
+async function predict(){
+  const x = readInputs();
+  const r = await fetch(mode === "member" ? "/api/member/predict" : "/api/guest/predict", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({x})
+  });
+  const data = await r.json();
+  if(!r.ok){
+    document.getElementById("out").textContent = data.error || "Error";
+    return;
+  }
+  lastPrediction = {x, y: data.y};
+  document.getElementById("out").textContent = `${target} = ${data.y.toFixed(2)} MPa`;
+  const btnSave = document.getElementById("btnSave");
+  if(btnSave) btnSave.disabled = false;
+}
+
+async function save(){
+  if(!lastPrediction) return;
+  const r = await fetch("/api/member/save", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(lastPrediction)
+  });
+  const data = await r.json();
+  if(!r.ok){
+    document.getElementById("out").textContent = data.error || "Error saving";
+    return;
+  }
+  document.getElementById("out").textContent = "Saved ✓";
+  renderTable(data.rows || []);
+}
+
+function renderTable(rows){
+  const tbody = document.querySelector("#savedTable tbody");
+  if(!tbody) return;
+  tbody.innerHTML = "";
+  for(const row of rows){
+    const tr = document.createElement("tr");
+    const tds = [];
+    tds.push(row.ts);
+    for(const f of features) tds.push(row[f]);
+    tds.push(row[target]);
+    for(const v of tds){
+      const td = document.createElement("td");
+      td.textContent = v;
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+}
+
+document.getElementById("btnPredict").addEventListener("click", predict);
+const btnSave = document.getElementById("btnSave");
+if(btnSave) btnSave.addEventListener("click", save);
+</script>
+</body>
+</html>
