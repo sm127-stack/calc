@@ -186,16 +186,14 @@ const chart = new Chart(ctx, {
 function updateChart(xVal, yVal){
   const i = parseInt(document.getElementById("vary").value, 10);
 
-  // Axis labels
+  // X axis can still follow the slider range
   chart.options.scales.x.title.text = FEATURES[i];
-  chart.options.scales.y.title.text = TARGET;
+  chart.options.scales.x.min = parseFloat(document.getElementById("slider").min);
+  chart.options.scales.x.max = parseFloat(document.getElementById("slider").max);
 
-  // Make sure point is ALWAYS visible
-  chart.options.scales.x.min = Math.min(xVal, parseFloat(document.getElementById("slider").min));
-  chart.options.scales.x.max = Math.max(xVal, parseFloat(document.getElementById("slider").max));
-
-  chart.options.scales.y.min = Math.min(yVal, YLIM[0]);
-  chart.options.scales.y.max = Math.max(yVal, YLIM[1]);
+  // ✅ Y axis stays fixed (static)
+  chart.options.scales.y.min = YLIM[0];
+  chart.options.scales.y.max = YLIM[1];
 
   chart.data.datasets[0].data = [{x: xVal, y: yVal}];
   chart.update();
