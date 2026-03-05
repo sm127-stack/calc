@@ -110,13 +110,16 @@ def current_user_id() -> int | None:
 
 def get_saved_rows(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
     with db() as con:
-        rows = con.execute(
-            "SELECT ts,f0,f1,f2,f3,f4,y FROM predictions WHERE user_id=? ORDER BY id DESC LIMIT ?",
+        cur = db_execute(
+            con,
+            qmark("SELECT ts,f0,f1,f2,f3,f4,y FROM predictions WHERE user_id=? ORDER BY id DESC LIMIT ?"),
             (user_id, limit),
-        ).fetchall()
+        )
+        rows = cur.fetchall()
 
     out: List[Dict[str, Any]] = []
-    for r in rows[::-1]:  # oldest->newest
+    for r in rows[::-1]:  # oldest -> newest
+        # r is sqlite3.Row for SQLite, dict-like for Postgres (if you use RealDictCursor)
         out.append({
             "ts": r["ts"],
             model.FEATURES[0]: r["f0"],
