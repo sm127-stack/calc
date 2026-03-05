@@ -149,15 +149,20 @@ def signup():
         flash("Missing email or password.")
         return redirect(url_for("home"))
 
-    with db() as con:
-        try:
-            con.execute(
-                "INSERT INTO users (email, password_hash, created_at) VALUES (?,?,?)",
+    try:
+        with db() as con:
+            db_execute(
+                con,
+                qmark("INSERT INTO users (email, password_hash, created_at) VALUES (?,?,?)"),
                 (email, generate_password_hash(psw), datetime.utcnow().isoformat(timespec="seconds")),
             )
-        except sqlite3.IntegrityError:
-            flash("That user already exists. Try logging in.")
-            return redirect(url_for("home"))
+            # psycopg2 does NOT autocommit by default
+            if is_postgres():
+                con.commit()
+    except Exception:
+        # SQLite raises sqlite3.IntegrityError; Postgres raises a different exception type
+        flash("That user already exists. Try logging in.")
+        return redirect(url_for("home"))
 
     flash("Signup successful. You can now log in.")
     return redirect(url_for("home"))
