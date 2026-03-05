@@ -19,7 +19,7 @@ RANGES = [
     [0, 2000],       # cooling power
     [0, 100],        # 👈 number of fans (changed)
 ]
-Y_LIM = [250, 450]
+Y_LIM = [200, 500]
 
 def predict(x_raw: List[float]) -> float:
     x = np.asarray(x_raw, dtype=float)
