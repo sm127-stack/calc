@@ -259,8 +259,10 @@ def api_member_save():
     payload = request.get_json(force=True, silent=True) or {}
     x = payload.get("x")
     y = payload.get("y")
+
     if not isinstance(x, list) or len(x) != len(model.FEATURES):
         return jsonify({"error": "Expected JSON: {x:[5 numbers], y:number}"}), 400
+
     try:
         y = float(y)
         f0, f1, f2, f3, f4 = float(x[0]), float(x[1]), float(x[2]), float(x[3]), int(round(float(x[4])))
@@ -268,11 +270,15 @@ def api_member_save():
         return jsonify({"error": "Inputs must be numeric"}), 400
 
     ts = datetime.utcnow().isoformat(timespec="seconds")
+
     with db() as con:
-        con.execute(
-            "INSERT INTO predictions (user_id,ts,f0,f1,f2,f3,f4,y) VALUES (?,?,?,?,?,?,?,?)",
+        db_execute(
+            con,
+            qmark("INSERT INTO predictions (user_id,ts,f0,f1,f2,f3,f4,y) VALUES (?,?,?,?,?,?,?,?)"),
             (uid, ts, f0, f1, f2, f3, f4, y),
         )
+        if is_postgres():
+            con.commit()
 
     rows = get_saved_rows(uid, limit=10)
     return jsonify({"ok": True, "rows": rows})
