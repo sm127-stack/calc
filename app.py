@@ -22,7 +22,14 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 def is_postgres() -> bool:
     return bool(DATABASE_URL)
 
-def exec_sql(con, sql, params=()):
+def qmark(sql: str) -> str:
+    """
+    Convert SQLite '?' placeholders to Postgres '%s' placeholders.
+    Use ONLY for SQL strings that use '?'.
+    """
+    return sql.replace("?", "%s") if is_postgres() else sql
+
+def db_execute(con, sql, params=()):
     """Execute SQL and return a cursor (works for sqlite + postgres)."""
     if is_postgres():
         cur = con.cursor()
