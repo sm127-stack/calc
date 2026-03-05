@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import sqlite3
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -17,44 +17,51 @@ import model
 APP_DIR = os.path.abspath(os.path.dirname(__file__))
 DB_PATH = os.path.join(APP_DIR, "app.db")
 
+# Render (and many hosts) provide this for Postgres
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
 
 def is_postgres() -> bool:
     return bool(DATABASE_URL)
 
+
 def qmark(sql: str) -> str:
-    """
-    Convert SQLite '?' placeholders to Postgres '%s' placeholders.
-    Use ONLY for SQL strings that use '?'.
-    """
+    """Convert SQLite '?' placeholders to Postgres '%s' placeholders."""
     return sql.replace("?", "%s") if is_postgres() else sql
 
-def db_execute(con, sql, params=()):
-    """Execute SQL and return a cursor (works for sqlite + postgres)."""
+
+def db():
+    """
+    Returns a DB connection:
+    - Local dev: SQLite (app.db)
+    - Deployed: Postgres via DATABASE_URL
+    """
+    if DATABASE_URL:
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+
+        con = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+        # Make life easy: no manual commit needed
+        con.autocommit = True
+        return con
+    else:
+        con = sqlite3.connect(DB_PATH)
+        con.row_factory = sqlite3.Row
+        return con
+
+
+def exec_sql(con, sql: str, params=()):
+    """
+    Execute SQL and return a cursor-like object.
+    Works for both sqlite3 and psycopg2.
+    """
+    sql = qmark(sql)
     if is_postgres():
         cur = con.cursor()
         cur.execute(sql, params)
         return cur
     else:
         return con.execute(sql, params)
-
-def fetchone(cur):
-    return cur.fetchone()
-
-def fetchall(cur):
-    return cur.fetchall()
-
-
-def db():
-    if DATABASE_URL:
-        import psycopg2
-        from psycopg2.extras import RealDictCursor
-        con = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-        return con
-    else:
-        con = sqlite3.connect(DB_PATH)
-        con.row_factory = sqlite3.Row
-        return con
 
 
 def init_db() -> None:
@@ -105,28 +112,32 @@ def init_db() -> None:
             """)
 
 
-def current_user_id() -> int | None:
+def current_user_id() -> Optional[int]:
     email = session.get("user_email")
     if not email:
         return None
+
     with db() as con:
-        cur = exec_sql(con, "SELECT id FROM users WHERE email = %s" if is_postgres() else "SELECT id FROM users WHERE email = ?", (email,))
-        row = fetchone(cur)
-        return int(row["id"]) if row else None
+        cur = exec_sql(con, "SELECT id FROM users WHERE email = ?", (email,))
+        row = cur.fetchone()
+
+    # row is sqlite3.Row (sqlite) or dict (psycopg2 RealDictCursor)
+    if not row:
+        return None
+    return int(row["id"])
 
 
 def get_saved_rows(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
     with db() as con:
-        cur = db_execute(
+        cur = exec_sql(
             con,
-            qmark("SELECT ts,f0,f1,f2,f3,f4,y FROM predictions WHERE user_id=? ORDER BY id DESC LIMIT ?"),
+            "SELECT ts,f0,f1,f2,f3,f4,y FROM predictions WHERE user_id=? ORDER BY id DESC LIMIT ?",
             (user_id, limit),
         )
         rows = cur.fetchall()
 
     out: List[Dict[str, Any]] = []
     for r in rows[::-1]:  # oldest -> newest
-        # r is sqlite3.Row for SQLite, dict-like for Postgres (if you use RealDictCursor)
         out.append({
             "ts": r["ts"],
             model.FEATURES[0]: r["f0"],
@@ -142,8 +153,8 @@ def get_saved_rows(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
 
-with app.app_context():
-    init_db()
+# Create tables at startup
+init_db()
 
 
 @app.get("/")
@@ -155,22 +166,21 @@ def home():
 def signup():
     email = (request.form.get("email") or "").strip().lower()
     psw = request.form.get("psw") or ""
+
     if not email or not psw:
         flash("Missing email or password.")
         return redirect(url_for("home"))
 
     try:
         with db() as con:
-            db_execute(
+            exec_sql(
                 con,
-                qmark("INSERT INTO users (email, password_hash, created_at) VALUES (?,?,?)"),
+                "INSERT INTO users (email, password_hash, created_at) VALUES (?,?,?)",
                 (email, generate_password_hash(psw), datetime.utcnow().isoformat(timespec="seconds")),
             )
-            # psycopg2 does NOT autocommit by default
-            if is_postgres():
-                con.commit()
     except Exception:
-        # SQLite raises sqlite3.IntegrityError; Postgres raises a different exception type
+        # SQLite: sqlite3.IntegrityError
+        # Postgres: Unique violation etc.
         flash("That user already exists. Try logging in.")
         return redirect(url_for("home"))
 
@@ -182,10 +192,10 @@ def signup():
 def login():
     email = (request.form.get("email") or "").strip().lower()
     psw = request.form.get("psw") or ""
+
     with db() as con:
-        sql = "SELECT email,password_hash FROM users WHERE email=%s" if is_postgres() else "SELECT email,password_hash FROM users WHERE email=?"
-        cur = exec_sql(con, sql, (email,))
-        row = fetchone(cur)
+        cur = exec_sql(con, "SELECT email,password_hash FROM users WHERE email=?", (email,))
+        row = cur.fetchone()
 
     if not row or not check_password_hash(row["password_hash"], psw):
         flash("Invalid username or password.")
@@ -226,6 +236,7 @@ def member():
     defaults = model.MU.tolist()
     defaults[-1] = int(round(defaults[-1]))
     rows = get_saved_rows(uid, limit=10)
+
     return render_template(
         "calculator.html",
         title="Member Calculator",
@@ -241,12 +252,15 @@ def member():
 def api_guest_predict():
     payload = request.get_json(force=True, silent=True) or {}
     x = payload.get("x")
+
     if not isinstance(x, list) or len(x) != len(model.FEATURES):
         return jsonify({"error": "Expected JSON: {x:[5 numbers]}"}), 400
+
     try:
         y = model.predict(x)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
     return jsonify({"y": y})
 
 
@@ -272,25 +286,31 @@ def api_member_save():
 
     try:
         y = float(y)
-        f0, f1, f2, f3, f4 = float(x[0]), float(x[1]), float(x[2]), float(x[3]), int(round(float(x[4])))
+        f0, f1, f2, f3, f4 = (
+            float(x[0]),
+            float(x[1]),
+            float(x[2]),
+            float(x[3]),
+            int(round(float(x[4]))),
+        )
     except Exception:
         return jsonify({"error": "Inputs must be numeric"}), 400
 
     ts = datetime.utcnow().isoformat(timespec="seconds")
 
     with db() as con:
-        db_execute(
+        exec_sql(
             con,
-            qmark("INSERT INTO predictions (user_id,ts,f0,f1,f2,f3,f4,y) VALUES (?,?,?,?,?,?,?,?)"),
+            "INSERT INTO predictions (user_id,ts,f0,f1,f2,f3,f4,y) VALUES (?,?,?,?,?,?,?,?)",
             (uid, ts, f0, f1, f2, f3, f4, y),
         )
-        if is_postgres():
-            con.commit()
 
     rows = get_saved_rows(uid, limit=10)
     return jsonify({"ok": True, "rows": rows})
 
 
 if __name__ == "__main__":
-    # Run: python app.py
-    app.run(host="127.0.0.1", port=3000, debug=True)
+    # Local run: python app.py
+    # Render run: uses $PORT and requires host 0.0.0.0
+    port = int(os.environ.get("PORT", "3000"))
+    app.run(host="0.0.0.0", port=port, debug=True)
