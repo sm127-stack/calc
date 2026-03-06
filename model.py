@@ -1,6 +1,3 @@
-"""
-Model wrapper + dataset metadata (ranges, fixed y-limits) extracted from your notebook.
-"""
 from __future__ import annotations
 from typing import List
 import numpy as np
@@ -12,13 +9,7 @@ W = np.array([364.54435751864537, 2.7268522381452276, 16.68207764207219, 8.93051
 MU = np.array([594.0162443144899, 3.247568810916178, 4.30462508619557, 893.7914230019493, 48.512020792722545], dtype=float)
 SIGMA = np.array([15.915684963900695, 0.4786019232456688, 0.33270119546324906, 567.0908296976912, 5.339696959818941], dtype=float)
 
-RANGES = [
-    [500, 700],      # strength
-    [1, 6],          # thickness
-    [2, 7],          # speed
-    [0, 2000],       # cooling power
-    [0, 100],        # 👈 number of fans (changed)
-]
+RANGES = [[500, 700], [1, 6], [2, 7], [0, 2000], [0, 100]]
 Y_LIM = [200, 500]
 
 def predict(x_raw: List[float]) -> float:
