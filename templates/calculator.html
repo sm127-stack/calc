@@ -169,9 +169,12 @@ let lastPrediction = null;
 const ctx = document.getElementById('chart').getContext('2d');
 const chart = new Chart(ctx, {
   type: 'scatter',
-  data: { datasets: [{ label: 'point per feature', data: [], pointRadius: 6 }] },
+  data: { datasets: [{ label: '', data: [], pointRadius: 6 }] },
   options: {
     animation: false,
+    plugins: {
+      legend: { display: false }
+    },
     scales: {
       x: { title: { display: true, text: FEATURES[0] } },
       y: { title: { display: true, text: TARGET }, min: YLIM[0], max: YLIM[1] }
