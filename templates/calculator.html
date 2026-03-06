@@ -27,13 +27,9 @@ button:disabled{opacity:0.5;cursor:not-allowed}
 <body>
 <div class="container">
   <div class="nav">
+    <a href="/">Home</a>
     {% if session.get("user_name") %}
-      <!-- Logged in: only Logout -->
       <a href="/logout">Logout</a>
-    {% else %}
-      <!-- Not logged in: normal navigation -->
-      <a href="/">Home</a>
-      <a href="/guest">Guest</a>
     {% endif %}
   </div>
 
