@@ -103,212 +103,345 @@ button:disabled{opacity:0.5;cursor:not-allowed}
 </div>
 
 <script>
-const mode = "{{ mode }}";
-const FEATURES = {{ features|tojson }};
-const TARGET = "{{ target }}";
-const RANGES = {{ ranges|tojson }};
-const YLIM = {{ ylim|tojson }};
+class CalculatorUI {
+  constructor(config) {
+    this.mode = config.mode;
+    this.features = config.features;
+    this.target = config.target;
+    this.ranges = config.ranges;
+    this.ylim = config.ylim;
 
-function isIntFeature(i){ return i === FEATURES.length-1; }
+    this.lastPrediction = null;
 
-function readInputs(){
-  return FEATURES.map((_,i)=>{
-    const v = document.getElementById("f"+i).value;
-    return isIntFeature(i) ? parseInt(v || "0", 10) : parseFloat(v || "0");
-  });
-}
+    this.els = {
+      vary: document.getElementById("vary"),
+      slider: document.getElementById("slider"),
+      sliderReadout: document.getElementById("sliderReadout"),
+      out: document.getElementById("out"),
+      btnPredict: document.getElementById("btnPredict"),
+      btnSave: document.getElementById("btnSave"),
+      btnExport: document.getElementById("btnExport"),
+      btnClear: document.getElementById("btnClear"),
+      tableBody: document.querySelector("#savedTable tbody"),
+      chartCanvas: document.getElementById("chart"),
+      inputs: []
+    };
 
-function setInput(i, value){
-  document.getElementById("f"+i).value = isIntFeature(i) ? String(Math.round(value)) : String(value);
-}
+    for (let i = 0; i < this.features.length; i++) {
+      this.els.inputs.push(document.getElementById(`f${i}`));
+    }
 
-function setupVary(){
-  const sel = document.getElementById("vary");
-  sel.innerHTML = "";
-  FEATURES.forEach((f,i)=>{
-    const o = document.createElement("option");
-    o.value = String(i);
-    o.textContent = f;
-    sel.appendChild(o);
-  });
-  sel.value = "0";
-}
+    this.chart = null;
+  }
 
-function configureSlider(i){
-  const [lo0, hi0] = RANGES[i];
-  let lo = lo0, hi = hi0;
-  const current = parseFloat(document.getElementById("f"+i).value || "0");
-  if(current < lo) lo = current;
-  if(current > hi) hi = current;
-  const pad = 0.02 * (hi - lo || 1);
-  lo -= pad; hi += pad;
+  init() {
+    this.setupVaryDropdown();
+    this.setupChart();
+    this.configureSlider(0);
+    this.bindEvents();
+    this.predict();
+  }
 
-  const slider = document.getElementById("slider");
-  slider.min = lo;
-  slider.max = hi;
-  slider.step = isIntFeature(i) ? 1 : Math.max((hi-lo)/200, 0.01);
-  slider.value = current;
-  document.getElementById("sliderReadout").textContent = isIntFeature(i) ? String(Math.round(current)) : current.toFixed(2);
-}
+  isIntFeature(i) {
+    return i === this.features.length - 1;
+  }
 
-function syncSliderFromInput(){
-  const i = parseInt(document.getElementById("vary").value, 10);
-  const v = parseFloat(document.getElementById("f"+i).value || "0");
-  const slider = document.getElementById("slider");
-  let lo = parseFloat(slider.min), hi = parseFloat(slider.max);
-  if(v < lo) lo = v;
-  if(v > hi) hi = v;
-  slider.min = lo; slider.max = hi; slider.value = v;
-  document.getElementById("sliderReadout").textContent = isIntFeature(i) ? String(Math.round(v)) : v.toFixed(2);
-}
+  getCurrentFeatureIndex() {
+    return parseInt(this.els.vary.value, 10);
+  }
 
-let lastPrediction = null;
+  getInputValue(i) {
+    const raw = this.els.inputs[i].value;
+    return this.isIntFeature(i) ? parseInt(raw || "0", 10) : parseFloat(raw || "0");
+  }
 
-const ctx = document.getElementById('chart').getContext('2d');
-const chart = new Chart(ctx, {
-  type: 'scatter',
-  data: { datasets: [{ label: '', data: [], pointRadius: 6 }] },
-  options: {
-    animation: false,
-    plugins: {
-      legend: { display: false }
-    },
-    scales: {
-      x: { title: { display: true, text: FEATURES[0] } },
-      y: { title: { display: true, text: TARGET }, min: YLIM[0], max: YLIM[1] }
+  setInputValue(i, value) {
+    this.els.inputs[i].value = this.isIntFeature(i)
+      ? String(Math.round(value))
+      : String(value);
+  }
+
+  readInputs() {
+    return this.features.map((_, i) => this.getInputValue(i));
+  }
+
+  setupVaryDropdown() {
+    this.els.vary.innerHTML = "";
+    this.features.forEach((feature, i) => {
+      const option = document.createElement("option");
+      option.value = String(i);
+      option.textContent = feature;
+      this.els.vary.appendChild(option);
+    });
+    this.els.vary.value = "0";
+  }
+
+  setupChart() {
+    const ctx = this.els.chartCanvas.getContext("2d");
+    this.chart = new Chart(ctx, {
+      type: "scatter",
+      data: {
+        datasets: [{
+          label: this.target,
+          data: [],
+          pointRadius: 7,
+          pointHoverRadius: 8
+        }]
+      },
+      options: {
+        animation: false,
+        scales: {
+          x: {
+            title: { display: true, text: this.features[0] }
+          },
+          y: {
+            title: { display: true, text: this.target },
+            min: this.ylim[0],
+            max: this.ylim[1]
+          }
+        }
+      }
+    });
+  }
+
+  configureSlider(i) {
+    const [lo0, hi0] = this.ranges[i];
+    let lo = lo0;
+    let hi = hi0;
+
+    if (this.isIntFeature(i)) {
+      lo = Math.floor(lo0 - 10);
+      hi = Math.ceil(hi0 + 10);
+    }
+
+    const current = parseFloat(this.els.inputs[i].value || "0");
+
+    if (current < lo) lo = current;
+    if (current > hi) hi = current;
+
+    const pad = 0.02 * (hi - lo || 1);
+    lo -= pad;
+    hi += pad;
+
+    this.els.slider.min = lo;
+    this.els.slider.max = hi;
+    this.els.slider.step = this.isIntFeature(i) ? 1 : Math.max((hi - lo) / 200, 0.01);
+    this.els.slider.value = current;
+
+    this.updateSliderReadout(current, i);
+  }
+
+  syncSliderFromInput() {
+    const i = this.getCurrentFeatureIndex();
+    const value = parseFloat(this.els.inputs[i].value || "0");
+
+    let lo = parseFloat(this.els.slider.min);
+    let hi = parseFloat(this.els.slider.max);
+
+    if (value < lo) lo = value;
+    if (value > hi) hi = value;
+
+    this.els.slider.min = lo;
+    this.els.slider.max = hi;
+    this.els.slider.value = value;
+
+    this.updateSliderReadout(value, i);
+  }
+
+  updateSliderReadout(value, i) {
+    this.els.sliderReadout.textContent = this.isIntFeature(i)
+      ? String(Math.round(value))
+      : value.toFixed(2);
+  }
+
+  updateOutput(text) {
+    this.els.out.textContent = text;
+  }
+
+  updateChart(xVal, yVal) {
+    const i = this.getCurrentFeatureIndex();
+
+    this.chart.options.scales.x.title.text = this.features[i];
+    this.chart.options.scales.x.min = parseFloat(this.els.slider.min);
+    this.chart.options.scales.x.max = parseFloat(this.els.slider.max);
+
+    // fixed y-axis, like notebook behavior
+    this.chart.options.scales.y.min = this.ylim[0];
+    this.chart.options.scales.y.max = this.ylim[1];
+
+    this.chart.data.datasets[0].data = [{ x: xVal, y: yVal }];
+    this.chart.update();
+  }
+
+  async fetchJson(url, options = {}) {
+    const response = await fetch(url, options);
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+  }
+
+  async predict() {
+    const x = this.readInputs();
+    const url = this.mode === "member"
+      ? "/api/member/predict"
+      : "/api/guest/predict";
+
+    const { response, data } = await this.fetchJson(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ x })
+    });
+
+    if (!response.ok) {
+      this.updateOutput(data.error || "Error");
+      return;
+    }
+
+    this.lastPrediction = { x, y: data.y };
+    this.updateOutput(`${this.target} = ${data.y.toFixed(2)} MPa`);
+
+    const i = this.getCurrentFeatureIndex();
+    const xVal = this.isIntFeature(i) ? Math.round(x[i]) : x[i];
+    this.updateChart(xVal, data.y);
+
+    if (this.els.btnSave) {
+      this.els.btnSave.disabled = false;
     }
   }
-});
 
-function updateChart(xVal, yVal){
-  const i = parseInt(document.getElementById("vary").value, 10);
+  async save() {
+    if (!this.lastPrediction) return;
 
-  chart.options.scales.x.title.text = FEATURES[i];
-  chart.options.scales.x.min = parseFloat(document.getElementById("slider").min);
-  chart.options.scales.x.max = parseFloat(document.getElementById("slider").max);
+    const { response, data } = await this.fetchJson("/api/member/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(this.lastPrediction)
+    });
 
-  chart.options.scales.y.min = YLIM[0];
-  chart.options.scales.y.max = YLIM[1];
-
-  chart.data.datasets[0].data = [{x: xVal, y: yVal}];
-  chart.update();
-}
-
-async function predict(){
-  const x = readInputs();
-  const url = (mode === "member") ? "/api/member/predict" : "/api/guest/predict";
-  const r = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({x}) });
-  const data = await r.json();
-  if(!r.ok){
-    document.getElementById("out").textContent = data.error || "Error";
-    return;
-  }
-  lastPrediction = {x, y: data.y};
-  document.getElementById("out").textContent = `${TARGET} = ${data.y.toFixed(2)} MPa`;
-
-  const i = parseInt(document.getElementById("vary").value, 10);
-  const xVal = isIntFeature(i) ? Math.round(x[i]) : x[i];
-  updateChart(xVal, data.y);
-
-  const btnSave = document.getElementById("btnSave");
-  if(btnSave) btnSave.disabled = false;
-}
-
-async function save(){
-  if(!lastPrediction) return;
-  const r = await fetch("/api/member/save", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(lastPrediction) });
-  const data = await r.json();
-  if(!r.ok){
-    document.getElementById("out").textContent = data.error || "Error saving";
-    return;
-  }
-  document.getElementById("out").textContent = "Saved ✓";
-  renderTable(data.rows || []);
-}
-
-function renderTable(rows){
-  const tbody = document.querySelector("#savedTable tbody");
-  if(!tbody) return;
-  tbody.innerHTML = "";
-  for(const row of rows){
-    const tr = document.createElement("tr");
-    const tds = [];
-    tds.push(row.ts);
-    for(const f of FEATURES) tds.push(row[f]);
-    tds.push(row[TARGET]);
-    for(const v of tds){
-      const td = document.createElement("td");
-      td.textContent = v;
-      tr.appendChild(td);
+    if (!response.ok) {
+      this.updateOutput(data.error || "Error saving");
+      return;
     }
-    tbody.appendChild(tr);
+
+    this.updateOutput("Saved ✓");
+    this.renderTable(data.rows || []);
+  }
+
+  async clearAll() {
+    const { response, data } = await this.fetchJson("/api/member/clear", {
+      method: "POST"
+    });
+
+    if (!response.ok) {
+      this.updateOutput(data.error || "Error clearing");
+      return;
+    }
+
+    this.updateOutput("Cleared ✓");
+    this.renderTable([]);
+
+    if (this.els.btnSave) {
+      this.els.btnSave.disabled = true;
+    }
+  }
+
+  async exportCsv() {
+    const response = await fetch("/api/member/export");
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      this.updateOutput(data.error || "Error exporting");
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "predictions.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  renderTable(rows) {
+    if (!this.els.tableBody) return;
+
+    this.els.tableBody.innerHTML = "";
+
+    for (const row of rows) {
+      const tr = document.createElement("tr");
+
+      const values = [
+        row.ts,
+        ...this.features.map(f => row[f]),
+        row[this.target]
+      ];
+
+      for (const value of values) {
+        const td = document.createElement("td");
+        td.textContent = value;
+        tr.appendChild(td);
+      }
+
+      this.els.tableBody.appendChild(tr);
+    }
+  }
+
+  handleVaryChange() {
+    const i = this.getCurrentFeatureIndex();
+    this.configureSlider(i);
+    this.predict();
+  }
+
+  handleSliderInput() {
+    const i = this.getCurrentFeatureIndex();
+    const value = parseFloat(this.els.slider.value);
+
+    this.setInputValue(i, value);
+    this.updateSliderReadout(value, i);
+    this.predict();
+  }
+
+  handleFieldInput(i) {
+    if (i === this.getCurrentFeatureIndex()) {
+      this.syncSliderFromInput();
+    }
+    this.predict();
+  }
+
+  bindEvents() {
+    this.els.btnPredict.addEventListener("click", () => this.predict());
+    this.els.vary.addEventListener("change", () => this.handleVaryChange());
+    this.els.slider.addEventListener("input", () => this.handleSliderInput());
+
+    this.els.inputs.forEach((input, i) => {
+      input.addEventListener("input", () => this.handleFieldInput(i));
+    });
+
+    if (this.els.btnSave) {
+      this.els.btnSave.addEventListener("click", () => this.save());
+    }
+
+    if (this.els.btnClear) {
+      this.els.btnClear.addEventListener("click", () => this.clearAll());
+    }
+
+    if (this.els.btnExport) {
+      this.els.btnExport.addEventListener("click", () => this.exportCsv());
+    }
   }
 }
 
-async function clearAll(){
-  const r = await fetch("/api/member/clear", { method:"POST" });
-  const data = await r.json();
-  if(!r.ok){
-    document.getElementById("out").textContent = data.error || "Error clearing";
-    return;
-  }
-  document.getElementById("out").textContent = "Cleared ✓";
-  renderTable([]);
-  const btnSave = document.getElementById("btnSave");
-  if(btnSave) btnSave.disabled = true;
-}
-
-async function exportCsv(){
-  const r = await fetch("/api/member/export");
-  if(!r.ok){
-    const data = await r.json().catch(()=>({}));
-    document.getElementById("out").textContent = data.error || "Error exporting";
-    return;
-  }
-  const blob = await r.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "predictions.csv";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-document.getElementById("btnPredict").addEventListener("click", predict);
-const btnSave = document.getElementById("btnSave");
-if(btnSave) btnSave.addEventListener("click", save);
-const btnClear = document.getElementById("btnClear");
-if(btnClear) btnClear.addEventListener("click", clearAll);
-const btnExport = document.getElementById("btnExport");
-if(btnExport) btnExport.addEventListener("click", exportCsv);
-
-setupVary();
-configureSlider(0);
-
-document.getElementById("vary").addEventListener("change", (e)=>{
-  const i = parseInt(e.target.value, 10);
-  configureSlider(i);
-  predict();
+const app = new CalculatorUI({
+  mode: "{{ mode }}",
+  features: {{ features|tojson }},
+  target: "{{ target }}",
+  ranges: {{ ranges|tojson }},
+  ylim: {{ ylim|tojson }}
 });
 
-document.getElementById("slider").addEventListener("input", (e)=>{
-  const i = parseInt(document.getElementById("vary").value, 10);
-  const v = parseFloat(e.target.value);
-  setInput(i, v);
-  document.getElementById("sliderReadout").textContent = isIntFeature(i) ? String(Math.round(v)) : v.toFixed(2);
-  predict();
-});
-
-FEATURES.forEach((_,i)=>{
-  document.getElementById("f"+i).addEventListener("input", ()=>{
-    if(i === parseInt(document.getElementById("vary").value, 10)) syncSliderFromInput();
-    predict();
-  });
-});
-
-predict();
+app.init();
 </script>
 </body>
 </html>
