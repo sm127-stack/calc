@@ -109,6 +109,7 @@ init_db()
 
 @app.get("/")
 def home():
+    session.clear()
     return render_template("index.html")
 
 
