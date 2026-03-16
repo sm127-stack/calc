@@ -4,39 +4,39 @@
 <meta charset="utf-8">
 <title>Linear Regression Calculator</title>
 
-/* GENERAL PAGE STYLING */
+<!--GENERAL PAGE STYLING-->
 <style>
 *{box-sizing:border-box;font-family:Arial}
-/* button style used for login, sign up, and open calculator */
+<!--button style used for login, sign up, and open calculator-->
 .btn{display:inline-block;padding:14px 20px;background:#888;color:#fff;cursor:pointer;text-decoration:none}
-/* hidden checkbox used to open/close modal popups */
+<!--hidden checkbox used to open/close modal popups-->
 .toggle{display:none}
-/* centers the open calculator button horizontally */
+<!--centers the open calculator button horizontally-->
 .center-screen{display:flex;justify-content:center;align-items:center;margin-top:18px}
-/* dark overlay background for popup windows */
+<!--dark overlay background for popup windows-->
 .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);padding-top:60px}
-/* white popup box for login/signup forms */
+<!--white popup box for login/signup forms-->
 .box{background:#fff;margin:auto;padding:20px;border:1px solid #888;width:80%;max-width:600px;position:relative}
-/* close button in top right of popup */
+<!--close button in top right of popup-->
 .close{position:absolute;top:10px;right:15px;font-size:30px;font-weight:bold;cursor:pointer;color:#000}
-/* input field styling */
+<!--input field styling-->
 input{width:100%;padding:12px;margin:8px 0;border:0;background:#f1f1f1}
-/* full width submit button inside forms */
+<!--full width submit button inside forms-->
 .full{width:100%;margin-top:10px;border:0;background:#888;color:#fff;padding:14px 20px;cursor:pointer}
-/* box for Flask flash messages like errors */
+<!--box for Flask flash messages like errors-->
 .flash{max-width:600px;margin:12px auto;padding:10px 12px;border:1px solid #ddd;background:#fafafa}
 
-/* MODAL TOGGLE LOGIC */
-/* if checkbox is checked, show modal directly after it */
+<!--MODAL TOGGLE LOGIC-->
+<!--if checkbox is checked, show modal directly after it-->
 #loginToggle:checked + .modal{display:block}     
 #signupToggle:checked + .modal{display:block}
 </style>
 </head>
 <body>
 
-/* FLASH MESSAGE SECTION */
-/* Flask template code */
-/* shows messages sent from backend, such as login failed */
+<!--FLASH MESSAGE SECTION-->
+<!--Flask template code-->
+<!--shows messages sent from backend, such as login failed-->
 {% with messages = get_flashed_messages() %}
   {% if messages %}
     <div class="flash">
@@ -45,8 +45,8 @@ input{width:100%;padding:12px;margin:8px 0;border:0;background:#f1f1f1}
   {% endif %}
 {% endwith %}
 
-/* LOGIN BUTTON + LOGIN POPUP */
-/* clicking label checks hidden checkbox, which makes login modal appear */
+<!--LOGIN BUTTON + LOGIN POPUP-->
+<!--clicking label checks hidden checkbox, which makes login modal appear-->
 <label class="btn" for="loginToggle">Login</label>
 <input class="toggle" type="checkbox" id="loginToggle">
 
@@ -64,8 +64,8 @@ input{width:100%;padding:12px;margin:8px 0;border:0;background:#f1f1f1}
 
 <br><br>
 
-/* SIGN UP BUTTON + SIGN UP POPUP */
-/* same as login, but sends data to /signup route on backend */
+<!--SIGN UP BUTTON + SIGN UP POPUP-->
+<!--same as login, but sends data to /signup route on backend-->
 <label class="btn" for="signupToggle">Sign Up</label>
 <input class="toggle" type="checkbox" id="signupToggle">
 
@@ -83,8 +83,8 @@ input{width:100%;padding:12px;margin:8px 0;border:0;background:#f1f1f1}
 
 <br><br>
 
-/* MAIN CALCULATOR LINK */
-/* takes the user to /guest, which is guest version of calculator */
+<!--MAIN CALCULATOR LINK-->
+<!--takes the user to /guest, which is guest version of calculator-->
 <div class="center-screen">
   <a class="btn" href="/guest">Open Calculator</a>
 </div>
