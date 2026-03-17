@@ -134,6 +134,21 @@ function setupVary(){
   sel.value = "0";
 }
 
+function sanitizeInput(el, isInteger=false){
+  let v = el.value;
+
+  v = v.replace(/[^0-9.e]/g, "");
+
+  v = v.replace(/\+/g, "");
+  v = v.replace(/\-/g, "");
+
+  if(isInteger){
+    v = v.split(".")[0];
+  }
+
+  el.value = v;
+}
+
 function configureSlider(i){
   const [lo0, hi0] = RANGES[i];
   let lo = lo0, hi = hi0;
