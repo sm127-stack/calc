@@ -134,21 +134,78 @@ function setupVary(){
   sel.value = "0";
 }
 
-function sanitizeInput(el, isInteger=false){
-  let v = el.value;
+function attachInputGuards(){
+  FEATURES.forEach((_, i) => {
+    const el = document.getElementById("f" + i);
 
-  v = v.replace(/[^0-9.e]/g, "");
+    // Block unwanted keys while typing
+    el.addEventListener("keydown", (e) => {
+      const allowedControlKeys = [
+        "Backspace", "Delete", "Tab", "Escape", "Enter",
+        "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
+        "Home", "End"
+      ];
 
-  v = v.replace(/\+/g, "");
-  v = v.replace(/\-/g, "");
+      if (allowedControlKeys.includes(e.key) || e.ctrlKey || e.metaKey) {
+        return;
+      }
 
-  if(isInteger){
-    v = v.split(".")[0];
-  }
+      // Block + and -
+      if (e.key === "+" || e.key === "-") {
+        e.preventDefault();
+        return;
+      }
 
-  el.value = v;
+      // For integer field: allow only digits
+      if (isIntFeature(i)) {
+        if (!/[0-9]/.test(e.key)) {
+          e.preventDefault();
+        }
+        return;
+      }
+
+      // For non-integer fields: allow digits, one dot, and one e/E
+      if (/[0-9]/.test(e.key)) return;
+
+      if (e.key === ".") {
+        if (el.value.includes(".") || /e/.test(el.value)) {
+          e.preventDefault();
+        }
+        return;
+      }
+
+      if (e.key === "e") {
+        if (/e/.test(el.value) || el.value === "" || el.value === ".") {
+          e.preventDefault();
+        }
+        return;
+      }
+
+      // Block everything else
+      e.preventDefault();
+    });
+
+    // Extra cleanup for pasted text
+    el.addEventListener("paste", (e) => {
+      e.preventDefault();
+      const pasted = (e.clipboardData || window.clipboardData).getData("text");
+
+      let cleaned;
+      if (isIntFeature(i)) {
+        cleaned = pasted.replace(/\D/g, "");
+      } else {
+        cleaned = pasted
+          .replace(/[^\d.e]/g, "")
+          .replace(/([e].*)[e]/g, "$1")   // only one e
+          .replace(/(\..*)\./g, "$1");      // only one dot
+      }
+
+      el.value = cleaned;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  });
 }
-
+  
 function configureSlider(i){
   const [lo0, hi0] = RANGES[i];
   let lo = lo0, hi = hi0;
@@ -301,6 +358,7 @@ if(btnExport) btnExport.addEventListener("click", exportCsv);
 
 setupVary();
 configureSlider(0);
+attachInputGuards();
 
 document.getElementById("vary").addEventListener("change", (e)=>{
   const i = parseInt(e.target.value, 10);
