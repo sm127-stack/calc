@@ -318,6 +318,7 @@ document.getElementById("slider").addEventListener("input", (e)=>{
 
 FEATURES.forEach((_,i)=>{
   document.getElementById("f"+i).addEventListener("input", ()=>{
+    sanitizeInput(e.target, isIntFeature(i));
     if(i === parseInt(document.getElementById("vary").value, 10)) syncSliderFromInput();
     predict();
   });
