@@ -137,69 +137,52 @@ function setupVary(){
 function attachInputGuards(){
   FEATURES.forEach((_, i) => {
     const el = document.getElementById("f" + i);
-
-    // Block unwanted keys while typing
     el.addEventListener("keydown", (e) => {
       const allowedControlKeys = [
         "Backspace", "Delete", "Tab", "Escape", "Enter",
         "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
         "Home", "End"
       ];
-
       if (allowedControlKeys.includes(e.key) || e.ctrlKey || e.metaKey) {
         return;
       }
-
-      // Block + and -
       if (e.key === "+" || e.key === "-") {
         e.preventDefault();
         return;
       }
-
-      // For integer field: allow only digits
       if (isIntFeature(i)) {
         if (!/[0-9]/.test(e.key)) {
           e.preventDefault();
         }
         return;
       }
-
-      // For non-integer fields: allow digits, one dot, and one e/E
       if (/[0-9]/.test(e.key)) return;
-
       if (e.key === ".") {
         if (el.value.includes(".") || /e/.test(el.value)) {
           e.preventDefault();
         }
         return;
       }
-
       if (e.key === "e") {
         if (/e/.test(el.value) || el.value === "" || el.value === ".") {
           e.preventDefault();
         }
         return;
       }
-
-      // Block everything else
       e.preventDefault();
     });
-
-    // Extra cleanup for pasted text
     el.addEventListener("paste", (e) => {
       e.preventDefault();
       const pasted = (e.clipboardData || window.clipboardData).getData("text");
-
       let cleaned;
       if (isIntFeature(i)) {
         cleaned = pasted.replace(/\D/g, "");
       } else {
         cleaned = pasted
           .replace(/[^\d.e]/g, "")
-          .replace(/([e].*)[e]/g, "$1")   // only one e
-          .replace(/(\..*)\./g, "$1");      // only one dot
+          .replace(/([e].*)[e]/g, "$1") 
+          .replace(/(\..*)\./g, "$1");    
       }
-
       el.value = cleaned;
       el.dispatchEvent(new Event("input", { bubbles: true }));
     });
