@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+# standard library imports
 import os
 from datetime import datetime
 from typing import Any, Dict, List
 
+# database driver for postgresql
 import psycopg2
 from psycopg2.extras import RealDictCursor
+
+# flask utilities used by web app
 from flask import (
     Flask,
     render_template,
@@ -17,20 +21,24 @@ from flask import (
     jsonify,
     Response,
 )
+
+# utilities for safely hashing and checking user passwords
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# local module containing trained linear regression model
 import model
 
-
+# read database connection string from environment variables
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL environment variable is not set.")
 
-
+# creates abd returns new postgresql connection
 def db():
     return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
 
-
+# creates required tables if they dont already exist
 def init_db() -> None:
     with db() as con:
         with con.cursor() as cur:
@@ -57,7 +65,7 @@ def init_db() -> None:
             """)
         con.commit()
 
-
+# looks up currently logged in users database id
 def current_user_id() -> int | None:
     username = session.get("user_name")
     if not username:
@@ -69,7 +77,7 @@ def current_user_id() -> int | None:
             row = cur.fetchone()
             return int(row["id"]) if row else None
 
-
+# fetches latest saved predictions for given user
 def get_saved_rows(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
     with db() as con:
         with con.cursor() as cur:
@@ -86,7 +94,8 @@ def get_saved_rows(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
             rows = cur.fetchall()
 
     out: List[Dict[str, Any]] = []
-    for r in rows[::-1]:
+    
+    for r in rows[::-1]:     # reverse so oldest of retrieved rows appears first in ui
         out.append(
             {
                 "ts": r["ts"],
@@ -100,18 +109,21 @@ def get_saved_rows(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
         )
     return out
 
-
+# creates flask app instance
 app = Flask(__name__)
+
+# secret key needed for sessions and flash messages
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
 
+# ensures tables exist as soon as app starts
 init_db()
 
-
+# shows landing page containing login/signup options
 @app.get("/")
 def home():
     return render_template("index.html")
 
-
+# creates new user account
 @app.post("/signup")
 def signup():
     username = (request.form.get("username") or "").strip()
@@ -146,7 +158,7 @@ def signup():
     session["user_name"] = username
     return redirect(url_for("member"))
 
-
+# logs existing user into site
 @app.post("/login")
 def login():
     username = (request.form.get("username") or "").strip()
@@ -167,13 +179,13 @@ def login():
     session["user_name"] = username
     return redirect(url_for("member"))
 
-
+# logs user out by clearing session
 @app.get("/logout")
 def logout():
     session.clear()
     return redirect(url_for("home"))
 
-
+# shows guest version of calculator
 @app.get("/guest")
 def guest():
     defaults = model.MU.tolist()
@@ -190,7 +202,7 @@ def guest():
         ylim=model.Y_LIM,
     )
 
-
+# shows logged in member calculator page
 @app.get("/member")
 def member():
     uid = current_user_id()
@@ -213,7 +225,7 @@ def member():
         ylim=model.Y_LIM,
     )
 
-
+# api endpoint for prediction
 @app.post("/api/guest/predict")
 def api_guest_predict():
     payload = request.get_json(force=True, silent=True) or {}
@@ -229,14 +241,14 @@ def api_guest_predict():
 
     return jsonify({"y": y})
 
-
+# member only wrapper around same prediction endpoint
 @app.post("/api/member/predict")
 def api_member_predict():
     if current_user_id() is None:
         return jsonify({"error": "Not logged in"}), 401
     return api_guest_predict()
 
-
+# saves prediction to database for logged in user
 @app.post("/api/member/save")
 def api_member_save():
     uid = current_user_id()
@@ -276,7 +288,7 @@ def api_member_save():
     rows = get_saved_rows(uid, limit=10)
     return jsonify({"ok": True, "rows": rows})
 
-
+# deletes all saved predictions for logged in user
 @app.post("/api/member/clear")
 def api_member_clear():
     uid = current_user_id()
@@ -290,7 +302,7 @@ def api_member_clear():
 
     return jsonify({"ok": True})
 
-
+# exports all saved predictions for current user as csv download
 @app.get("/api/member/export")
 def api_member_export():
     uid = current_user_id()
@@ -313,7 +325,7 @@ def api_member_export():
     header = ["timestamp"] + model.FEATURES + [model.TARGET]
     lines = [",".join(header)]
 
-    for r in rows[::-1]:
+    for r in rows[::-1]:     # reverse so csv exported oldest to newest
         values = [
             r["ts"],
             str(r["f0"]),
