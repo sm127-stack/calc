@@ -2,16 +2,21 @@
 <html>
 <head>
 <meta charset="utf-8">
+<!-- page title passed from flask -->
 <title>{{ title }}</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- basic styling for layout spacing, fonts... -->
 <style>
+/* page layout and font */
 *{box-sizing:border-box;font-family:Arial}
 .container{max-width:1000px;margin:20px auto;padding:0 12px}
 .card{border:1px solid #ddd;border-radius:10px;padding:16px;margin-bottom:14px;background:#fff}
+/* container for inputs */
 .row{display:flex;gap:12px;flex-wrap:wrap}
 .field{flex:1 1 260px}
 label{display:block;font-weight:600;margin:8px 0 6px}
 input, select{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px}
+/* buttons styling */
 button{padding:12px 16px;border:0;border-radius:10px;background:#888;color:#fff;cursor:pointer}
 button:disabled{opacity:0.5;cursor:not-allowed}
 .small{font-size:13px;color:#444}
@@ -25,6 +30,8 @@ button:disabled{opacity:0.5;cursor:not-allowed}
 </style>
 </head>
 <body>
+
+<!-- NAVIGATION BAR -->
 <div class="container">
   <div class="nav">
     {% if session.get("user_name") %}
@@ -34,11 +41,13 @@ button:disabled{opacity:0.5;cursor:not-allowed}
     {% endif %}
   </div>
 
+  <!-- PAGE TITLE -->
   <h2>{{ title }}</h2>
   <div class="card small">
     Model: linear regression calculator to predict structural strength of motherboards in a production line.
   </div>
 
+  <!-- INPUT FEATURES -->
   <div class="card">
     <div class="row">
       {% for f in features %}
