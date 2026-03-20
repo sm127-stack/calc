@@ -58,6 +58,7 @@ button:disabled{opacity:0.5;cursor:not-allowed}
       {% endfor %}
     </div>
 
+    <!-- VARY FEATURE SELECTOR -->
     <div class="sliderRow">
       <div style="flex:1 1 260px">
         <label for="vary">Vary:</label>
@@ -70,8 +71,11 @@ button:disabled{opacity:0.5;cursor:not-allowed}
       <div style="min-width:80px" class="small" id="sliderReadout"></div>
     </div>
 
+    <!-- PREDICTION OUTPUT -->
     <div class="actions">
       <button id="btnPredict">Prediction:</button>
+
+      <!-- MEMBER ONLY ACTIONS -->
       {% if mode == "member" %}
         <button id="btnSave" disabled>Save</button>
         <button id="btnExport">Export as CSV</button>
@@ -86,6 +90,7 @@ button:disabled{opacity:0.5;cursor:not-allowed}
     <canvas id="chart" height="140"></canvas>
   </div>
 
+  <!-- SAVED PREDICTIONS TABLE -->
   {% if mode == "member" %}
   <div class="card">
     <h3>Saved predictions (last 10 only)</h3>
@@ -111,6 +116,7 @@ button:disabled{opacity:0.5;cursor:not-allowed}
   {% endif %}
 </div>
 
+<!-- JAVASCRIPT LOGIC -->
 <script>
 const mode = "{{ mode }}";
 const FEATURES = {{ features|tojson }};
@@ -122,7 +128,9 @@ function isIntFeature(i){ return i === FEATURES.length-1; }
 
 function readInputs(){
   return FEATURES.map((_,i)=>{
+    /* collects all input elements */
     const v = document.getElementById("f"+i).value;
+    /* function to read current input values into an array */
     return isIntFeature(i) ? parseInt(v || "0", 10) : parseFloat(v || "0");
   });
 }
@@ -258,12 +266,14 @@ function updateChart(xVal, yVal){
   chart.update();
 }
 
+/* calls backend api to get prediction */
 async function predict(){
   const x = readInputs();
   const url = (mode === "member") ? "/api/member/predict" : "/api/guest/predict";
   const r = await fetch(url, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({x}) });
   const data = await r.json();
   if(!r.ok){
+    /* updates prediction display */
     document.getElementById("out").textContent = data.error || "Error";
     return;
   }
@@ -278,6 +288,7 @@ async function predict(){
   if(btnSave) btnSave.disabled = false;
 }
 
+/* saves prediction to database */
 async function save(){
   if(!lastPrediction) return;
   const r = await fetch("/api/member/save", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(lastPrediction) });
@@ -309,6 +320,7 @@ function renderTable(rows){
   }
 }
 
+/* clears all saved predictions */
 async function clearAll(){
   const r = await fetch("/api/member/clear", { method:"POST" });
   const data = await r.json();
@@ -322,6 +334,7 @@ async function clearAll(){
   if(btnSave) btnSave.disabled = true;
 }
 
+  /* exports predictions as csv */
 async function exportCsv(){
   const r = await fetch("/api/member/export");
   if(!r.ok){
@@ -369,6 +382,7 @@ document.getElementById("slider").addEventListener("input", (e)=>{
 FEATURES.forEach((_,i)=>{
   document.getElementById("f"+i).addEventListener("input", ()=>{
     if(i === parseInt(document.getElementById("vary").value, 10)) syncSliderFromInput();
+    /* runs prediction once when page loads */
     predict();
   });
 });
