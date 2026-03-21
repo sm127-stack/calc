@@ -65,17 +65,10 @@ def init_db() -> None:
             """)
         con.commit()
 
-# looks up currently logged in users database id
+# gets currently logged in users id directly from the session
 def current_user_id() -> int | None:
-    username = session.get("user_name")
-    if not username:
-        return None
-
-    with db() as con:
-        with con.cursor() as cur:
-            cur.execute("SELECT id FROM users WHERE username = %s", (username,))
-            row = cur.fetchone()
-            return int(row["id"]) if row else None
+    uid = session.get("user_id")
+    return int(uid) if uid is not None else None
 
 # fetches latest saved predictions for given user
 def get_saved_rows(user_id: int, limit: int = 10) -> List[Dict[str, Any]]:
@@ -153,8 +146,10 @@ def signup():
                     datetime.utcnow().isoformat(timespec="seconds"),
                 ),
             )
+            new_row = cur.fetchone()
         con.commit()
 
+    session["user_id"] = int(new_row["id"])
     session["user_name"] = username
     return redirect(url_for("member"))
 
@@ -167,7 +162,7 @@ def login():
     with db() as con:
         with con.cursor() as cur:
             cur.execute(
-                "SELECT username, password_hash FROM users WHERE username = %s",
+                "SELECT id, username, password_hash FROM users WHERE username = %s",
                 (username,),
             )
             row = cur.fetchone()
@@ -176,7 +171,8 @@ def login():
         flash("Invalid username or password.")
         return redirect(url_for("home"))
 
-    session["user_name"] = username
+    session["user_id"] = int(row["id"])
+    session["user_name"] = row["username"]
     return redirect(url_for("member"))
 
 # logs user out by clearing session
