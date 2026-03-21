@@ -345,15 +345,5 @@ def api_member_export():
         headers={"Content-Disposition": "attachment; filename=predictions.csv"},
     )
 
-
-@app.get("/reset-db")
-def reset_db():
-    with db() as con:
-        with con.cursor() as cur:
-            cur.execute("TRUNCATE TABLE predictions, users RESTART IDENTITY CASCADE;")
-        con.commit()
-    return "Database reset done"
-    
-
 if __name__ == "__main__":
     app.run(debug=True)
