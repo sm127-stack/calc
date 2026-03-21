@@ -348,3 +348,12 @@ def api_member_export():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
+@app.get("/reset-db")
+def reset_db():
+    with db() as con:
+        with con.cursor() as cur:
+            cur.execute("TRUNCATE TABLE predictions, users RESTART IDENTITY CASCADE;")
+        con.commit()
+    return "Database reset done"
